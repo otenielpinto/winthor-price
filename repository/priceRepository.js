@@ -65,6 +65,7 @@ async function SyncPricesAllTenants() {
         `TenantId[${id_tenant}] - Buscando dados Server Oracle ${page}/${page_count}  Tamanho da pagina: ${per_page} Total de Registros: ${record_count}  as ${new Date()}`
       );
       const response = await getPriceByTenantId(id_tenant, page, per_page);
+      console.log("Subindo dados para o mongoDB");
       if (response) await savePriceMongo(id_tenant, response);
     }
     console.log(
@@ -150,30 +151,28 @@ async function savePriceMongo(id_tenant, items) {
     //console.log('compare product : ' + codprod);
 
     if (update == true) {
-      client
-        .collection("product_price")
-        .updateOne(
-          { codprod: { $eq: codprod }, idtenant: { $eq: id_tenant } },
-          {
-            $set: {
-              codprod: codprod,
-              idtenant: id_tenant,
-              numregiao: item.numregiao,
-              pvenda: item.pvenda,
-              ptabela: item.ptabela,
-              vlultentmes: item.vlultentmes,
-              ultcustotabpreco: item.ultcustotabpreco,
-              dtultaltpvenda: item.dtultaltpvenda,
-              qtest: Number(item.qtest),
-              custocont: item.custocont,
-              codfilial: item.codfilial,
-              status: pending,
-              updatedat: updatedat,
-              id_tiny: product?.id_tiny ? product?.id_tiny : null,
-            },
+      client.collection("product_price").updateOne(
+        { codprod: { $eq: codprod }, idtenant: { $eq: id_tenant } },
+        {
+          $set: {
+            codprod: codprod,
+            idtenant: id_tenant,
+            numregiao: item.numregiao,
+            pvenda: item.pvenda,
+            ptabela: item.ptabela,
+            vlultentmes: item.vlultentmes,
+            ultcustotabpreco: item.ultcustotabpreco,
+            dtultaltpvenda: item.dtultaltpvenda,
+            qtest: Number(item.qtest),
+            custocont: item.custocont,
+            codfilial: item.codfilial,
+            status: pending,
+            updatedat: updatedat,
+            id_tiny: product?.id_tiny ? product?.id_tiny : null,
           },
-          { upsert: true }
-        );
+        },
+        { upsert: true }
+      );
     }
   } //end for
 

@@ -60,9 +60,15 @@ async function validateTimeConnection() {
 //-------------------------------------------------------------
 let pathLibServer = null;
 const oracledb = require("oracledb");
-if ((process.env.ORACLE_LIB_DIR = 1)) {
+if (process.env.ORACLE_LIB_WIN32 == 1) {
   pathLibServer = "C:\\oracle\\instantclient_21_7";
 }
+
+if (process.env.ORACLE_LIB_LINUX == 1) {
+  pathLibServer = process.env.ORACLE_CLIENT_PATH;
+}
+
+console.log(pathLibServer);
 
 try {
   oracledb.initOracleClient({ libDir: pathLibServer });
