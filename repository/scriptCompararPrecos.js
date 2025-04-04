@@ -11,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 // Configurações
 const BATCH_SIZE = 2000; // Tamanho do lote para paginação
 const MAX_WORKERS = os.cpus().length - 1 || 2; // Número de workers baseado em CPUs disponíveis
+//const MAX_WORKERS = 1;
 
 // Configurações de conexão (deveriam vir de variáveis de ambiente)
 const db1Config = {
@@ -81,8 +82,6 @@ async function synchronizeCollections() {
     console.timeEnd(timeLabel);
 
     // 4. Gerar relatório detalhado
-    const collectionPrice = db1.collection("tmp_report_price");
-    await collectionPrice.insertOne(syncResults.details);
     console.log("Relatório detalhado salvo em tmp_report_price");
   } finally {
     await client1.close();
@@ -150,12 +149,16 @@ async function processSyncBatch(collection1, collection2, batchNumber) {
       if (code !== 0)
         reject(new Error(`Worker stopped with exit code ${code}`));
     });
+
+    // Send message to start processing
+    worker.postMessage("start");
   });
 }
 
 // Código do Worker para sincronização
 if (!isMainThread) {
-  (async () => {
+  // Define a function for worker processing instead of auto-executing
+  async function processWorkerBatch() {
     try {
       const { batchNumber, batchSize, db1Config, db2Config, fieldsToCompare } =
         workerData;
@@ -269,15 +272,44 @@ if (!isMainThread) {
         details: [],
       });
     }
-  })();
+  }
+
+  // Listen for message from main thread to start processing
+  parentPort.on("message", (message) => {
+    if (message === "start") {
+      processWorkerBatch();
+    }
+  });
 }
 
-// Executar apenas se for o main thread
-if (isMainThread) {
-  synchronizeCollections().catch((error) => {
+/**
+ * Function to start the price synchronization process
+ * @param {Object} options Optional configuration parameters
+ * @param {boolean} options.verbose Whether to log verbose output (default: false)
+ * @returns {Promise<Object>} Results of the synchronization process
+ */
+async function startSyncProcess(options = {}) {
+  console.log("Iniciando processo de sincronização de preços...");
+
+  try {
+    const results = await synchronizeCollections();
+    console.log("Processo de sincronização concluído com sucesso!");
+    return results;
+  } catch (error) {
+    console.error("Erro durante o processo de sincronização:", error);
+    throw error;
+  }
+}
+
+// Check if this script is being run directly (not imported)
+if (isMainThread && import.meta.url === `file://${process.argv[1]}`) {
+  startSyncProcess().catch((error) => {
     console.error("Erro durante a sincronização:", error);
     process.exit(1);
   });
 }
 
-export const scriptCompararPrecos = { synchronizeCollections };
+// Export functions for programmatic use
+export const scriptCompararPrecos = {
+  startSyncProcess,
+};

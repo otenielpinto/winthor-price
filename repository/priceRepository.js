@@ -14,8 +14,10 @@ const pending = 0;
 
 async function init() {
   await sendPricesToQueue();
-  await scriptCompararPrecos.synchronizeCollections();
-  await updatePricesTiny();
+  await scriptCompararPrecos.startSyncProcess();
+  await sendPricesToQueueTiny();
+
+  //a fila é processada pelo arquivo principal , porque lá ficaria mais rapido
 }
 
 async function getPageCount(id_tenant) {
@@ -80,7 +82,7 @@ async function sendPricesToQueue() {
     let productPriceFilaRepository = new ProductPriceFilaRepository();
     await productPriceFilaRepository.config();
     // sim  vou excluir tudo porque é muito mais rapido fazer isso , doque comparar os registros
-    await productPriceFilaRepository.deleteMany({ id_tenant: id_tenant });
+    await productPriceFilaRepository.deleteMany({ idtenant: id_tenant });
 
     let record_count = await getPageCount(id_tenant);
     let per_page = parseInt(Math.trunc(record_count * 0.1) + 1);
@@ -177,13 +179,14 @@ async function getAllPricePending(id_tenant) {
   return await client.collection("product_price").find(filter).toArray();
 }
 
-async function updatePricesTiny() {
+async function sendPricesToQueueTiny() {
   let tenants = await tenantRepository.getAllTenantSystem();
 
   for (let tenant of tenants) {
     if (
       await serviceRepository.wasExecutedToday(tenant.id, "Fila de Preços Tiny")
     ) {
+      console.log("Fila de preços já executou hoje");
       continue;
     }
 
@@ -198,7 +201,6 @@ async function updatePricesTiny() {
     await productPriceTinyFila.config();
 
     for (let price of prices) {
-      console.log(`[Updating ${price?.codprod}  - R$ ${price?.pvenda} ]`);
       let preco = Number(price?.pvenda ? price?.pvenda : 0);
       if (preco == null || preco == 0) {
         preco = price.ptabela ? price.ptabela : 0;
@@ -208,8 +210,7 @@ async function updatePricesTiny() {
         console.log(`[Price is null ${price?.codprod}  - R$ ${preco} ]`);
         continue;
       }
-
-      rows.push(prices);
+      rows.push(price);
     }
     await productPriceTinyFila.insertMany(rows);
   }
@@ -221,6 +222,4 @@ export const priceRepository = {
   sendPricesToQueue,
   getPriceByTenantId,
   getAllPricePending,
-
-  updatePricesTiny,
 };

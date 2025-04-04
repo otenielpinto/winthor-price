@@ -3,6 +3,10 @@ import { TMongo } from "./config/db.js";
 import { lib } from "./utils/lib.js";
 import { priceRepository } from "./repository/priceRepository.js";
 
+async function task() {
+  await priceRepository.init();
+}
+
 async function init() {
   await priceRepository.init();
 
@@ -20,10 +24,6 @@ async function init() {
   } catch (err) {
     throw new Error(`Can't start agenda! Err: ${err.message}`);
   }
-}
-
-async function task() {
-  await priceRepository.init();
 }
 
 export const agenda = { init };

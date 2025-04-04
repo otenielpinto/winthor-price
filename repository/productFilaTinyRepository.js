@@ -47,7 +47,7 @@ class ProductPriceFilaTinyRepository {
   }
 
   async insertMany(items) {
-    if (!Array.isArray(items) | (items.length == 0)) return null;
+    if (!Array.isArray(items) || items.length == 0) return null;
     try {
       return await this.db.collection(collection).insertMany(items);
     } catch (e) {

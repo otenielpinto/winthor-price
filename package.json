@@ -1,5 +1,5 @@
 {
-  "name": "stock-services",
+  "name": "API Prices Services",
   "version": "1.0.0",
   "description": "API de integracao com software TOTVS WINTHOR . ",
   "main": "app.js",
