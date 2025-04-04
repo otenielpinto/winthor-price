@@ -27,7 +27,7 @@ sudo apt-get install -y unzip
 Removemos os arquivos antigos e executamos novamente o script de instalação:
 
 ```bash
-sudo rm -rf /home/oteniel/oracle/instantclient_21_8/*
+sudo rm -rf /opt/oracle/instantclient_21_8/*
 sudo ./install-oracle-client.sh
 ```
 
@@ -37,7 +37,7 @@ Verificamos se as bibliotecas foram instaladas corretamente:
 
 ```bash
 ldconfig -p | grep libclntsh
-LD_LIBRARY_PATH=/home/oteniel/oracle/instantclient_21_8 ldd /home/oteniel/oracle/instantclient_21_8/libclntsh.so.21.1
+LD_LIBRARY_PATH=/opt/oracle/instantclient_21_8 ldd /opt/oracle/instantclient_21_8/libclntsh.so.21.1
 ```
 
 ## 5. Instalação de Dependências Adicionais
@@ -53,7 +53,7 @@ sudo apt-get install -y libaio1
 Confirmamos que todas as dependências estão resolvidas:
 
 ```bash
-LD_LIBRARY_PATH=/home/oteniel/oracle/instantclient_21_8 ldd /home/oteniel/oracle/instantclient_21_8/libclntsh.so.21.1
+LD_LIBRARY_PATH=/opt/oracle/instantclient_21_8 ldd /opt/oracle/instantclient_21_8/libclntsh.so.21.1
 ```
 
 ## Configuração do Ambiente
@@ -61,7 +61,7 @@ LD_LIBRARY_PATH=/home/oteniel/oracle/instantclient_21_8 ldd /home/oteniel/oracle
 Certifique-se de que seu arquivo `.env` contenha:
 
 ```
-LD_LIBRARY_PATH=/home/oteniel/oracle/instantclient_21_8
+LD_LIBRARY_PATH=/opt/oracle/instantclient_21_8
 ```
 
 ## Reinicialização da Aplicação

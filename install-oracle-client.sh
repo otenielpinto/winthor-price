@@ -3,7 +3,7 @@
 # Script to install Oracle Instant Client on Linux
 # This script needs to be run with sudo
 
-INSTALL_DIR="/home/oteniel/oracle"
+INSTALL_DIR="/opt/oracle"
 CLIENT_VERSION="21.8"
 INSTANT_CLIENT_DIR="$INSTALL_DIR/instantclient_21_8"
 
