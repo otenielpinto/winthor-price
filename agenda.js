@@ -8,15 +8,13 @@ async function task() {
 }
 
 async function init() {
-  await priceRepository.init();
-
-  console.log("Fim da leitura as " + new Date().toLocaleString());
-
-  return;
+  //await priceRepository.init();
+  //console.log("Fim da leitura as " + new Date().toLocaleString());
+  //return;
 
   try {
-    const time = 60 * 6; //tempo em minutos
-    const job = nodeSchedule.scheduleJob(`*/${time} * * * *`, async () => {
+    // Configuração para executar uma vez por dia às 01:00 da manhã
+    const job = nodeSchedule.scheduleJob("0 1 * * *", async () => {
       console.log(" Job start as " + new Date().toLocaleString());
       await TMongo.validateTimeConnection();
       await task();
