@@ -1,8 +1,6 @@
-const db = require("../config/db");
-const apiTiny = require("../api/tiny");
-const lib = require("../utils/lib");
-const tenantRepository = require("./tenantRepository");
-const { log } = require("winston");
+import { lib } from "../utils/lib.js";
+import { tenantRepository } from "./tenantRepository.js";
+import apiTiny from "../api/tiny.js";
 
 async function obterNumeroPaginaPedido(idTenant, params) {
   const res = await pedidosPesquisa(idTenant, 1, params);
@@ -173,7 +171,7 @@ async function produtoIncluir(payload) {
   return response;
 }
 
-module.exports = {
+export const tinyRepository = {
   obterNumeroPaginaPedido,
   pedidosPesquisa,
   pedidoObter,

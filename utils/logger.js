@@ -1,6 +1,10 @@
-const winston = require("winston");
-const path = require("path");
-const util = require("util");
+import winston from "winston";
+import path from "path";
+import util from "util";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const LOGGERS = {};
 
@@ -34,7 +38,7 @@ function createLogger(loggerKey) {
   return logger;
 }
 
-module.exports = (loggerKey, data) => {
+export default (loggerKey, data) => {
   try {
     loggerKey = loggerKey.replace(":", "").replace(".log", "");
 

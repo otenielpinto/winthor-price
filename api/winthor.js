@@ -1,7 +1,7 @@
-const axios = require("axios");
-const { response } = require("express");
-const db = require("../config/db");
-const lib = require("../utils/lib");
+import axios from "axios";
+import { TMongo } from "../config/db.js";
+import { lib } from "../utils/lib.js";
+
 var cacheTokenApi = [];
 
 async function getAccessToken(payLoad) {
@@ -27,7 +27,7 @@ async function getAccessToken(payLoad) {
 }
 
 async function getConfig(idTenant) {
-  let config = await db.getConfigById(idTenant);
+  let config = await TMongo.getConfigById(idTenant);
   if (!config) console.log(`A consulta não retornou dados: ${idTenant}`);
 
   const accessToken = await getAccessToken(config);
@@ -112,7 +112,4 @@ async function logoutToken() {
   cacheTokenApi = [];
 }
 
-module.exports = {
-  execute,
-  logoutToken,
-};
+export { execute, logoutToken };

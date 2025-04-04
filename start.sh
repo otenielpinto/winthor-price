@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Set Oracle client library path
-export LD_LIBRARY_PATH=/home/oteniel/oracle/instantclient_21_8
-export ORACLE_CLIENT_PATH=/home/oteniel/oracle/instantclient_21_8
+export LD_LIBRARY_PATH=/home/$user/oracle/instantclient_21_8
+export ORACLE_CLIENT_PATH=/home/$user/oracle/instantclient_21_8
 
 # Verify the Oracle client library exists
 if [ ! -f "$LD_LIBRARY_PATH/libclntsh.so" ]; then

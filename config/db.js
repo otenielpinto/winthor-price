@@ -1,7 +1,7 @@
 //-------------------------------------------------------------
 //Conexao com mongo_db
 //-------------------------------------------------------------
-const MongoClient = require("mongodb").MongoClient;
+import { MongoClient } from "mongodb";
 let client = null;
 var dateStarted = null;
 
@@ -24,12 +24,12 @@ async function mongoDisconnect() {
 }
 
 //sim as configurações ficam dentro do mongo_db ? Porque ? Porque são varias lojas plugadas ao aplicativo .
-async function getConfigById(idTenant) {
+async function getConfigById(id_tenant) {
   const api = await mongoConnect();
-  const tenant = await api.collection("tenant").findOne({ id: idTenant });
+  const tenant = await api.collection("tenant").findOne({ id: id_tenant });
 
   if (!tenant || tenant == null || tenant === undefined) {
-    console.log(`A consulta não retornou dados: ${idTenant}`);
+    console.log(`A consulta não retornou dados: ${id_tenant}`);
   }
   return tenant;
 }
@@ -52,59 +52,7 @@ async function validateTimeConnection() {
 //Fim conexao com mongo_db
 //-------------------------------------------------------------
 
-// https://node-oracledb.readthedocs.io/en/latest/user_guide/installation.html#windowsinstallation
-//https://blog.biri.me/category/nodejs/
-
-//-------------------------------------------------------------
-//Conexao com oracle_db
-//-------------------------------------------------------------
-let pathLibServer = null;
-const oracledb = require("oracledb");
-if (process.env.ORACLE_LIB_WIN32 == 1) {
-  pathLibServer = "C:\\oracle\\instantclient_21_7";
-}
-
-if (process.env.ORACLE_LIB_LINUX == 1) {
-  pathLibServer = process.env.ORACLE_CLIENT_PATH;
-}
-
-console.log(pathLibServer);
-
-try {
-  oracledb.initOracleClient({ libDir: pathLibServer });
-} catch (err) {
-  console.error("Whoops!");
-  console.error(err);
-  process.exit(1);
-}
-
-async function oracleByTenantId(idTenant) {
-  let config = await getConfigById(idTenant);
-  if (!config) console.log(`A consulta não retornou dados: ${idTenant}`);
-
-  const knex = require("knex")({
-    client: "oracledb",
-    connection: {
-      host: `${config.oracle_host}`,
-      user: `${config.oracle_user}`,
-      password: `${config.oracle_password}`,
-      requestTimeout: 10000,
-      connectString: `${config.oracle_connectString}`,
-    },
-    fetchAsString: ["number", "clob"],
-  });
-
-  if (knex == undefined) {
-    console.log(
-      `TenantId[${idTenant}] A consulta retornou erros ao conectar Server Oracle ${new Date()}`
-    );
-  }
-  return knex;
-}
-
-module.exports = {
-  oracledb,
-  oracleByTenantId,
+export const TMongo = {
   mongoConnect,
   mongoDisconnect,
   validateTimeConnection,

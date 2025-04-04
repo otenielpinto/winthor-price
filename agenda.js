@@ -1,23 +1,29 @@
-const db = require("./config/db");
-const nodeSchedule = require("node-schedule");
-const priceRepository = require("./repository/priceRepository");
-const lib = require("./utils/lib");
+import nodeSchedule from "node-schedule";
+import { TMongo } from "./config/db.js";
+import { lib } from "./utils/lib.js";
+import { priceRepository } from "./repository/priceRepository.js";
 
 async function init() {
-  await priceRepository.SyncPricesAllTenants();
-  await priceRepository.updatePricesTiny();
+  await priceRepository.init();
+
   console.log("Fim da leitura as " + new Date().toLocaleString());
 
-  //   try {
-  //     const time = 60*24; //tempo em minutos
-  //     const job = nodeSchedule.scheduleJob(`*/${time} * * * *`, async () => {
-  //       console.log(" Job start as " + new Date().toLocaleString());
-  //       await db.validateTimeConnection();
-  //       syncronizaWtaNow();
-  //     });
-  //   } catch (err) {
-  //     throw new Error(`Can't start agenda! Err: ${err.message}`);
-  //   }
+  return;
+
+  try {
+    const time = 60 * 6; //tempo em minutos
+    const job = nodeSchedule.scheduleJob(`*/${time} * * * *`, async () => {
+      console.log(" Job start as " + new Date().toLocaleString());
+      await TMongo.validateTimeConnection();
+      await task();
+    });
+  } catch (err) {
+    throw new Error(`Can't start agenda! Err: ${err.message}`);
+  }
 }
 
-module.exports = { init };
+async function task() {
+  await priceRepository.init();
+}
+
+export const agenda = { init };

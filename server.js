@@ -1,17 +1,13 @@
-require('dotenv-safe').config(); 
-const db = require('./config/db'); 
-const app = require('./app') ;
-const logger = require('./utils/logger') ;
-const agenda = require('./agenda');
+import { config } from "dotenv-safe";
+config();
+import app from "./app.js";
+import { agenda } from "./agenda.js";
 
-
-( async()=>{
-    logger('system', `Starting the server apps...`);
-    const server = app.listen(process.env.NODE_PORT, () => {
-        logger('system', 'App is running at ' + process.env.NODE_PORT);
-
-    logger('system', `Starting the Agenda...`);
+(async () => {
+  console.log("system", `Starting the server apps...`);
+  const server = app.listen(process.env.NODE_PORT, () => {
+    console.log("system", "App is running at " + process.env.NODE_PORT);
+    console.log("system", `Starting the Agenda...`);
     agenda.init();
-      
-    })
-})(); 
+  });
+})();

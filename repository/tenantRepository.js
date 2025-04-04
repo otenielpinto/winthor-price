@@ -1,7 +1,8 @@
-const db = require("../config/db");
+import { TMongo } from "../config/db.js";
+import { lib } from "../utils/lib.js";
 
 async function getAllTenantSystem() {
-  const client = await db.mongoConnect();
+  const client = await TMongo.mongoConnect();
   return await client.collection("tenant").find().toArray();
 }
 
@@ -44,17 +45,17 @@ async function insertTenant() {
     updateat: new Date(),
   };
 
-  const client = await db.mongoConnect();
+  const client = await TMongo.mongoConnect();
   client
     .collection("tenant")
     .updateOne({ id: { $eq: id } }, { $set: config }, { upsert: true });
   return true;
 }
 async function getTenantById(idTenant) {
-  return db.getConfigById(idTenant);
+  return TMongo.getConfigById(idTenant);
 }
 
-module.exports = {
+export const tenantRepository = {
   getAllTenantSystem,
   getTokenByTenantId,
   getTenantById,

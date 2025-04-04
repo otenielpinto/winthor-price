@@ -1,8 +1,8 @@
-const db = require("../config/db");
-const lib = require("../utils/lib");
+import { TMongo } from "../config/db.js";
+import { lib } from "../utils/lib.js";
 
 async function getServiceById(idtenant, name_service) {
-  const client = await db.mongoConnect();
+  const client = await TMongo.mongoConnect();
   let response = await client
     .collection("service")
     .findOne({ id: idtenant, name: name_service });
@@ -21,7 +21,7 @@ async function updateService(idtenant, name_service) {
   let last = new Date();
   let dateBr = lib.formatDateBr(new Date());
 
-  const client = await db.mongoConnect();
+  const client = await TMongo.mongoConnect();
   const service = await getServiceById(idtenant, name_service);
 
   if (!service) {
@@ -45,20 +45,18 @@ async function updateService(idtenant, name_service) {
     );
 }
 
-async function hasExec(idtenant, name_service) {
-  let service = await getService(idtenant, name_service);
+async function wasExecutedToday(id_tenant, name_service) {
+  const service = await getService(id_tenant, name_service);
 
-  if (service.dateBr) {
-    let dateBr = lib.formatDateBr(new Date());
-    if (service.dateBr == dateBr) {
-      return 1;
-    }
+  if (service?.dateBr) {
+    const today = lib.formatDateBr(new Date());
+    if (service.dateBr === today) return true;
   }
-  return 0;
+
+  await updateService(id_tenant, name_service);
+  return false;
 }
 
-module.exports = {
-  getService,
-  updateService,
-  hasExec,
+export const serviceRepository = {
+  wasExecutedToday,
 };

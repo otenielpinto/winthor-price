@@ -1,12 +1,13 @@
-const db = require("../config/db");
-const lib = require("../utils/lib");
-const winthorRepository = require("./winthorRepository");
-const orderRepository = require("./orderRepository");
-const stockRepository = require("./stockRepository");
-const tinyRepository = require("./tinyRepository");
-const productRepository = require("./productRepository");
-const idTrackRepository = require("./idTrackRepository");
-const { response } = require("express");
+import { TMongoRailway } from "../config/railwayMongo.js";
+import { TMongo } from "../config/db.js";
+import { lib } from "../utils/lib.js";
+
+import { winthorRepository } from "./winthorRepository.js";
+import { orderRepository } from "./orderRepository.js";
+import { stockRepository } from "./stockRepository.js";
+import { tinyRepository } from "./tinyRepository.js";
+import { productRepository } from "./productRepository.js";
+import { idTrackRepository } from "./idTrackRepository.js";
 
 async function obterUltimoProdutoSyncronizado(id_tenant) {
   let idTracker = await idTrackRepository.getIdTracker(
@@ -225,7 +226,7 @@ async function addListProductToTiny(id_tenant, items) {
 
 async function syncronizarProductToTiny(params = {}) {
   let id_tenant = params.idtenant;
-  let tenant = await db.getConfigById(id_tenant);
+  let tenant = await TMongo.getConfigById(id_tenant);
 
   if (tenant.tiny_import_product != 1) {
     console.log(
@@ -488,7 +489,7 @@ async function syncronizarStockWta(params = {}) {
   removeWtaBlackList(idtenant);
 }
 
-module.exports = {
+export const wtaRepository = {
   syncronizarPedidoToWta,
   syncronizarStockWta,
   syncronizarProductToTiny,

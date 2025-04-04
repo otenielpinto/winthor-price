@@ -1,17 +1,29 @@
-const db = require("../config/db");
-const lib = require("../utils/lib");
-const tenantRepository = require("./tenantRepository");
-const tinyRepository = require("./tinyRepository");
+import { TMongo } from "../config/db.js";
+import { lib } from "../utils/lib.js";
+import { TOracle } from "../config/oracleNode.js";
+
+import { tenantRepository } from "./tenantRepository.js";
+import { ProductPriceFilaRepository } from "./productFilaRepository.js";
+import { serviceRepository } from "./serviceRepository.js";
+import { ProductPriceFilaTinyRepository } from "./productFilaTinyRepository.js";
+import { scriptCompararPrecos } from "./scriptCompararPrecos.js";
+
 var cache = [];
 const processed = 1;
 const pending = 0;
+
+async function init() {
+  await sendPricesToQueue();
+  await scriptCompararPrecos.synchronizeCollections();
+  await updatePricesTiny();
+}
 
 async function getPageCount(id_tenant) {
   for (let c of cache) {
     if (c.idtenant == id_tenant) return c.record_count;
   }
 
-  let tenant = await db.getConfigById(id_tenant);
+  let tenant = await TMongo.getConfigById(id_tenant);
   let codfilial = tenant.price_codfilial ? tenant.price_codfilial : "1";
   let codregiao = tenant.price_codregiao;
 
@@ -21,7 +33,7 @@ async function getPageCount(id_tenant) {
   }
 
   //contagem de produtos tabela preço e região ...
-  const query = await db.oracleByTenantId(id_tenant);
+  const query = await TOracle.oracleByTenantId(id_tenant);
   try {
     const res = await query.raw(`
       select count(*)  as qtd 
@@ -45,15 +57,30 @@ async function getPageCount(id_tenant) {
   }
 }
 
-async function SyncPricesAllTenants() {
+async function sendPricesToQueue() {
   let tenants = await tenantRepository.getAllTenantSystem();
+  let updatedat = new Date();
 
   for (let item of tenants) {
-    let id_tenant = item.id;
-    if (item.price_service_on == 0) {
+    let id_tenant = Number(item?.id ? item?.id : 0);
+    if (item?.price_service_on == 0 || id_tenant == 0) {
       console.log("Empresa sem permissão para atualizar preço de custo");
       continue;
     }
+
+    if (
+      await serviceRepository.wasExecutedToday(
+        id_tenant,
+        "Coleta de Preços Winthor"
+      )
+    ) {
+      continue;
+    }
+
+    let productPriceFilaRepository = new ProductPriceFilaRepository();
+    await productPriceFilaRepository.config();
+    // sim  vou excluir tudo porque é muito mais rapido fazer isso , doque comparar os registros
+    await productPriceFilaRepository.deleteMany({ id_tenant: id_tenant });
 
     let record_count = await getPageCount(id_tenant);
     let per_page = parseInt(Math.trunc(record_count * 0.1) + 1);
@@ -64,10 +91,31 @@ async function SyncPricesAllTenants() {
       console.log(
         `TenantId[${id_tenant}] - Buscando dados Server Oracle ${page}/${page_count}  Tamanho da pagina: ${per_page} Total de Registros: ${record_count}  as ${new Date()}`
       );
-      const response = await getPriceByTenantId(id_tenant, page, per_page);
+
+      let response;
+      let rows = [];
+      try {
+        response = await getPriceByTenantId(id_tenant, page, per_page);
+        //se tiver uma maneira de fazer isso mais rapido , por favor me avise
+        for (let r of response) {
+          r.qtest = Number(r.qtest ? r.qtest : 0);
+          r.rnum = Number(r.rnum ? r.rnum : 0);
+          let row = { ...r, idtenant: id_tenant, status: 0, updatedat };
+          rows.push(row);
+        }
+      } catch (error) {
+        console.log("A rotina retornou erro " + error);
+      }
+
+      try {
+        await productPriceFilaRepository.insertMany(rows);
+      } catch (error) {
+        console.log("A rotina retornou erro " + error);
+      }
+
       console.log("Subindo dados para o mongoDB");
-      if (response) await savePriceMongo(id_tenant, response);
     }
+
     console.log(
       `TenantId[${id_tenant}]  Fim do processamento Server Oracle ${new Date()} `
     );
@@ -76,7 +124,7 @@ async function SyncPricesAllTenants() {
 }
 
 async function getPriceByTenantId(id_tenant, page, per_page) {
-  let tenant = await db.getConfigById(id_tenant);
+  let tenant = await TMongo.getConfigById(id_tenant);
   let codfilial = tenant.price_codfilial ? tenant.price_codfilial : "1";
   let codregiao = tenant.price_codregiao;
 
@@ -85,7 +133,7 @@ async function getPriceByTenantId(id_tenant, page, per_page) {
   //t.codprod= ${codprod} and
 
   //pego os dados do estoque conforme o idTenant ...
-  const query = await db.oracleByTenantId(id_tenant);
+  const query = await TOracle.oracleByTenantId(id_tenant);
   //e.valorultent  campo correto
 
   //https://savepoint.blog.br/2013/04/09/limit-e-offset-no-oracle/
@@ -123,207 +171,56 @@ async function getPriceByTenantId(id_tenant, page, per_page) {
   }
 }
 
-async function savePriceMongo(id_tenant, items) {
-  if (!items) return false;
-  const client = await db.mongoConnect();
-  let updatedat = new Date();
-
-  for (let item of items) {
-    let codprod = item.codprod;
-    if (!codprod) codprod = "0";
-    let product = await client
-      .collection("product_price")
-      .findOne({ codprod: codprod, idtenant: id_tenant });
-    let update = false;
-
-    if (
-      product == null ||
-      product == undefined ||
-      product.pvenda != item.pvenda ||
-      product.ptabela != item.ptabela ||
-      product.vlultentmes != item.vlultentmes ||
-      product.custocont != item.custocont
-    )
-      update = true;
-
-    //console.log('comparando PROD mongo ' + JSON.stringify( product));
-    //console.log('comparando PROD sql ' + JSON.stringify(item));
-    //console.log('compare product : ' + codprod);
-
-    if (update == true) {
-      client.collection("product_price").updateOne(
-        { codprod: { $eq: codprod }, idtenant: { $eq: id_tenant } },
-        {
-          $set: {
-            codprod: codprod,
-            idtenant: id_tenant,
-            numregiao: item.numregiao,
-            pvenda: item.pvenda,
-            ptabela: item.ptabela,
-            vlultentmes: item.vlultentmes,
-            ultcustotabpreco: item.ultcustotabpreco,
-            dtultaltpvenda: item.dtultaltpvenda,
-            qtest: Number(item.qtest),
-            custocont: item.custocont,
-            codfilial: item.codfilial,
-            status: pending,
-            updatedat: updatedat,
-            id_tiny: product?.id_tiny ? product?.id_tiny : null,
-          },
-        },
-        { upsert: true }
-      );
-    }
-  } //end for
-
-  return true;
-}
-
-async function setStatusByIdTiny(id_tenant, id_tiny) {
-  const client = await db.mongoConnect();
-  await client
-    .collection("product_price")
-    .updateOne(
-      { id_tiny: { $eq: id_tiny.toString() }, idtenant: { $eq: id_tenant } },
-      { $set: { status: processed } },
-      { upesert: true }
-    );
-  return;
-}
 async function getAllPricePending(id_tenant) {
   let filter = { status: pending, idtenant: id_tenant };
-  const client = await db.mongoConnect();
+  const client = await TMongo.mongoConnect();
   return await client.collection("product_price").find(filter).toArray();
-}
-
-async function getProductBySku(id_tenant, sku) {
-  const client = await db.mongoConnect();
-  const response = await client
-    .collection("product")
-    .findOne({ sku: sku.toString(), idtenant: id_tenant });
-  return response;
-}
-
-async function setCodigoTiny(payload) {
-  let codprod = payload.codprod;
-  let id_tenant = payload.id_tenant;
-  let id_tiny = String(payload.id_tiny);
-
-  const client = await db.mongoConnect();
-  await client
-    .collection("product_price")
-    .updateOne(
-      { codprod: { $eq: codprod }, idtenant: { $eq: id_tenant } },
-      { $set: { id_tiny } },
-      { upesert: true }
-    );
-  return;
 }
 
 async function updatePricesTiny() {
   let tenants = await tenantRepository.getAllTenantSystem();
 
   for (let tenant of tenants) {
-    if (tenant.price_service_on == 0) {
-      console.log("Empresa sem permissão para atualizar preço de custo");
+    if (
+      await serviceRepository.wasExecutedToday(tenant.id, "Fila de Preços Tiny")
+    ) {
       continue;
     }
 
+    if (tenant?.price_service_on == 0) {
+      console.log("Empresa sem permissão para atualizar preço de custo");
+      continue;
+    }
     let id_tenant = tenant.id;
-    let listOfItems = [];
+    let rows = [];
     let prices = await getAllPricePending(id_tenant);
+    let productPriceTinyFila = new ProductPriceFilaTinyRepository();
+    await productPriceTinyFila.config();
+
     for (let price of prices) {
-      console.log(`[Updating ${price.codprod}  - R$ ${price.pvenda} ]`);
-      let id_tiny = price.id_tiny ? price.id_tiny : "";
-      let preco = price.pvenda ? price.pvenda : 0;
+      console.log(`[Updating ${price?.codprod}  - R$ ${price?.pvenda} ]`);
+      let preco = Number(price?.pvenda ? price?.pvenda : 0);
       if (preco == null || preco == 0) {
         preco = price.ptabela ? price.ptabela : 0;
       }
 
       if (preco == null || preco == 0) {
-        console.log(`[Price is null ${price.codprod}  - R$ ${preco} ]`);
+        console.log(`[Price is null ${price?.codprod}  - R$ ${preco} ]`);
         continue;
       }
 
-      if (!id_tiny || id_tiny == null || id_tiny == undefined || id_tiny == 0) {
-        let prod = await getProductBySku(id_tenant, price.codprod);
-        if (!prod || prod == null || prod == undefined) continue;
-        if (prod.id) {
-          id_tiny = prod.id;
-          const payload = {
-            id_tenant: id_tenant,
-            codprod: price.codprod,
-            id_tiny: prod.id.toString(),
-          };
-          await setCodigoTiny(payload);
-        }
-      }
-      if (!id_tiny || id_tiny == null || id_tiny == undefined) continue;
-      if (listOfItems.length < 20) {
-        listOfItems.push({ id: id_tiny, preco });
-        continue;
-      }
-
-      try {
-        await updateResultUpdatePrices(
-          id_tenant,
-          await tinyRepository.produtoAtualizarPrecos({
-            id_tenant,
-            items: listOfItems,
-          })
-        );
-      } catch (error) {
-        console.log("O processamento retornou erro :" + error.message);
-      }
-
-      listOfItems = [];
-      await lib.sleep(1000 * 13);
-    } // for (let price of prices )
-
-    if (listOfItems.length > 0) {
-      await updateResultUpdatePrices(
-        id_tenant,
-        await tinyRepository.produtoAtualizarPrecos({
-          id_tenant,
-          items: listOfItems,
-        })
-      );
-      listOfItems = [];
+      rows.push(prices);
     }
+    await productPriceTinyFila.insertMany(rows);
   }
 }
 
-async function updateResultUpdatePrices(id_tenant, res) {
-  if (!res || res == null || res == undefined) return;
-  let data = res.data;
-  let status = 0;
-
-  if (data.retorno.registros) {
-    let items = data.retorno.registros;
-    for (let item of items) {
-      if (item.registro.status != "OK") continue;
-      let id_tiny = item.registro.id;
-      console.log("Price updated :" + id_tiny);
-      //nao posso atualizar o status porque quem faz isso é a rotina do mercado turbo
-      //await setStatusByIdTiny(id_tenant,id_tiny)
-      status = 1;
-    }
-  }
-
-  if (status == 0)
-    console.log(`Resultado processamento :` + JSON.stringify(data));
-}
-
-module.exports = {
-  SyncPricesAllTenants,
+export const priceRepository = {
+  init,
+  getPageCount,
+  sendPricesToQueue,
   getPriceByTenantId,
   getAllPricePending,
-  getProductBySku,
-  setStatusByIdTiny,
-  setCodigoTiny,
-  updatePricesTiny,
-  updateResultUpdatePrices,
 
-  savePriceMongo,
-  getPageCount,
+  updatePricesTiny,
 };

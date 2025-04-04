@@ -1,4 +1,4 @@
-objectToLowerCase = function (records) {
+function objectToLowerCase(records) {
   const results = [];
   for (const record of records) {
     const keys = Object.keys(record);
@@ -9,7 +9,7 @@ objectToLowerCase = function (records) {
     results.push(novo);
   }
   return results;
-};
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -65,7 +65,7 @@ function upperCase(str) {
 //exemplo de uso
 //await sleep(3000);
 
-module.exports = {
+export const lib = {
   objectToLowerCase,
   sleep,
   addDays,
