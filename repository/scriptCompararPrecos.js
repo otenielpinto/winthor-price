@@ -10,8 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 
 // Configurações
 const BATCH_SIZE = 2000; // Tamanho do lote para paginação
-const MAX_WORKERS = os.cpus().length - 1 || 2; // Número de workers baseado em CPUs disponíveis
-//const MAX_WORKERS = 1;
+//const MAX_WORKERS = os.cpus().length - 1 || 2; // Número de workers baseado em CPUs disponíveis
+const MAX_WORKERS = 1;
 
 // Configurações de conexão (deveriam vir de variáveis de ambiente)
 const db1Config = {
