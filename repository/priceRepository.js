@@ -65,6 +65,7 @@ async function sendPricesToQueue() {
 
   for (let item of tenants) {
     let id_tenant = Number(item?.id ? item?.id : 0);
+
     if (item?.price_service_on == 0 || id_tenant == 0) {
       console.log("Empresa sem permissão para atualizar preço de custo");
       continue;

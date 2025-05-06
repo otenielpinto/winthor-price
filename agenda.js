@@ -8,9 +8,9 @@ async function task() {
 }
 
 async function init() {
-  //await priceRepository.init();
-  //console.log("Fim da leitura as " + new Date().toLocaleString());
-  //return;
+  // await priceRepository.init();
+  // console.log("Fim da leitura as " + new Date().toLocaleString());
+  // return;
 
   try {
     // Configuração para executar uma vez por dia às 01:00 da manhã
