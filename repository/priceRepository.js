@@ -13,9 +13,9 @@ const processed = 1;
 const pending = 0;
 
 async function init() {
-  await sendPricesToQueue();
+  //await sendPricesToQueue();
   await scriptCompararPrecos.startSyncProcess();
-  await sendPricesToQueueTiny();
+  //await sendPricesToQueueTiny();
 
   //a fila é processada pelo arquivo principal , porque lá ficaria mais rapido
 }
