@@ -1,9 +1,8 @@
 //Classe tem letras maiuculoas
-import { lib } from "../utils/lib.js";
-import { TMongoRailway } from "../config/railwayMongo.js";
-const collection = "tmp_product_price_fila";
+import { TMongo } from "../config/db.js";
+const collection = "product_price";
 
-class ProductPriceFilaRepository {
+class ProdutoPriceRepository {
   constructor() {
     this.db = null;
   }
@@ -11,7 +10,7 @@ class ProductPriceFilaRepository {
   async config(payload = {}) {
     let db;
     if (!payload?.db) {
-      db = await TMongoRailway.mongoConnect();
+      db = await TMongo.mongoConnect();
     } else {
       db = payload.db;
     }
@@ -38,8 +37,30 @@ class ProductPriceFilaRepository {
     return result.deletedCount > 0;
   }
 
-  async findAll(criterio = {}) {
-    return await this.db.collection(collection).find(criterio).toArray();
+  async findAll(criterio = {}, options = {}) {
+    const { page = 1, limit = 5000 } = options;
+    const skip = (page - 1) * limit;
+
+    // Obter o total de documentos para informações de paginação
+    const total = await this.db.collection(collection).countDocuments(criterio);
+
+    // Buscar os documentos com paginação
+    const data = await this.db
+      .collection(collection)
+      .find(criterio)
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    return {
+      data,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findById(id) {
@@ -47,7 +68,7 @@ class ProductPriceFilaRepository {
   }
 
   async insertMany(items) {
-    if (!Array.isArray(items) | (items.length == 0)) return null;
+    if (!Array.isArray(items)) return null;
     try {
       return await this.db.collection(collection).insertMany(items);
     } catch (e) {
@@ -64,4 +85,4 @@ class ProductPriceFilaRepository {
   }
 }
 
-export { ProductPriceFilaRepository };
+export { ProdutoPriceRepository };

@@ -55,6 +55,34 @@ class ProductPriceFilaTinyRepository {
     }
   }
 
+  async insertIntoQueue(items) {
+    if (!Array.isArray(items) || items.length == 0) return null;
+
+    try {
+      // Processar cada item para alterar o status para 1 e remover coluna reason
+      const preparedItems = items.map((item) => {
+        // Criar uma cópia do objeto para não modificar o original
+        const newItem = { ...item };
+
+        // Alterar o status para 1
+        newItem.status = 1;
+
+        // Remover a coluna reason se existir
+        if ("reason" in newItem) {
+          delete newItem.reason;
+        }
+
+        return newItem;
+      });
+
+      // Inserir os itens processados na coleção
+      return await this.db.collection(collection).insertMany(preparedItems);
+    } catch (e) {
+      console.log(e);
+      return null;
+    }
+  }
+
   async deleteMany(criterio = {}) {
     try {
       return await this.db.collection(collection).deleteMany(criterio);

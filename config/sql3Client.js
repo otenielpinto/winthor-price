@@ -1,10 +1,10 @@
 import knexPkg from "knex";
 
 export function sql3Client() {
-  const knex = require("knex")({
-    client: "sqlite3", // or 'better-sqlite3'
+  const knex = knexPkg({
+    client: "sqlite3",
     connection: {
-      filename: "./dados_erp.sqlite",
+      filename: "./dados_erp.db",
     },
   });
 

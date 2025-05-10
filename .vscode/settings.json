@@ -1,3 +1,13 @@
 {
-  "telemetry.feedback.enabled": false
+  "telemetry.feedback.enabled": false,
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "driver": "SQLite",
+      "name": "db_dados",
+      "group": "sqllite",
+      "database": "./dados_erp.db"
+    }
+  ],
+  "sqltools.useNodeRuntime": true
 }
