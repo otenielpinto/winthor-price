@@ -76,6 +76,48 @@ class ProdutoPriceRepository {
     }
   }
 
+  async updateMany(items) {
+    if (!Array.isArray(items)) return null;
+    try {
+      const result = {
+        matchedCount: 0,
+        modifiedCount: 0,
+        upsertedCount: 0,
+        errors: [],
+      };
+
+      for (const item of items) {
+        const { codprod, idtenant, codfilial } = item;
+        if (!codprod || !idtenant || !codfilial) {
+          result.errors.push({
+            item,
+            error:
+              "Missing required criteria fields (codprod, idtenant, or codfilial)",
+          });
+          continue;
+        }
+
+        const criteria = { codprod, idtenant, codfilial };
+        try {
+          const updateResult = await this.db
+            .collection(collection)
+            .updateOne(criteria, { $set: item }, { upsert: true });
+
+          result.matchedCount += updateResult.matchedCount;
+          result.modifiedCount += updateResult.modifiedCount;
+          result.upsertedCount += updateResult.upsertedCount || 0;
+        } catch (error) {
+          result.errors.push({ item, error: error.message });
+        }
+      }
+
+      return result;
+    } catch (e) {
+      console.log(e);
+      return { error: e.message };
+    }
+  }
+
   async deleteMany(criterio = {}) {
     try {
       return await this.db.collection(collection).deleteMany(criterio);

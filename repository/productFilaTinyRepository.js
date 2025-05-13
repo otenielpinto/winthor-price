@@ -59,19 +59,10 @@ class ProductPriceFilaTinyRepository {
     if (!Array.isArray(items) || items.length == 0) return null;
 
     try {
-      // Processar cada item para alterar o status para 1 e remover coluna reason
       const preparedItems = items.map((item) => {
         // Criar uma cópia do objeto para não modificar o original
         const newItem = { ...item };
-
-        // Alterar o status para 1
-        newItem.status = 1;
-
-        // Remover a coluna reason se existir
-        if ("reason" in newItem) {
-          delete newItem.reason;
-        }
-
+        newItem.status = 0;
         return newItem;
       });
 

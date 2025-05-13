@@ -11,13 +11,9 @@ import { ProdutoPriceRepository } from "./produtoPriceRepository.js";
 var cache = [];
 
 async function init() {
-  await compararPricesByTenant();
-
-  return;
-
-  await recebePrecosOld();
-  return;
   await recebePrecosNew();
+  await recebePrecosOld();
+  await compararPricesByTenant();
 }
 
 /**
@@ -190,27 +186,20 @@ async function getPageCount(id_tenant) {
 async function recebePrecosNew() {
   let tenants = await tenantRepository.getAllTenantSystem();
   let updatedat = new Date();
+  let nameService = "Coleta de Preços Winthor";
 
   for (let item of tenants) {
     let id_tenant = Number(item?.id ? item?.id : 0);
 
-    if (id_tenant != 1) {
+    if (item?.price_service_on == 0 || id_tenant == 0) {
+      console.log("Empresa sem permissão para atualizar preço de custo");
       continue;
     }
 
-    // if (item?.price_service_on == 0 || id_tenant == 0) {
-    //   console.log("Empresa sem permissão para atualizar preço de custo");
-    //   continue;
-    // }
-
-    // if (
-    //   await serviceRepository.wasExecutedToday(
-    //     id_tenant,
-    //     "Coleta de Preços Winthor"
-    //   )
-    // ) {
-    //   continue;
-    // }
+    if (await serviceRepository.wasExecutedToday(id_tenant, nameService)) {
+      console.log("Serviço já executado hoje para o tenant: " + id_tenant);
+      continue;
+    }
 
     let repository = new ProductPrecoNewRepository();
     await repository.config();
@@ -250,11 +239,17 @@ async function recebePrecosNew() {
     }
 
     await repository.close();
-    return true;
   }
+  return true;
 }
 
 async function recebePrecosOld() {
+  let id_tenant = 1;
+  let nameService = "Coleta lista geral de preços";
+  if (await serviceRepository.wasExecutedToday(id_tenant, nameService)) {
+    return;
+  }
+
   let produtoPrice = new ProdutoPriceRepository();
   await produtoPrice.config();
   let repository = new ProductPrecoOldRepository();
@@ -267,15 +262,18 @@ async function recebePrecosOld() {
 
   for (let page = 1; page <= pages; page++) {
     console.log(`Buscando dados MongoDB ${page}/${pages}  as ${new Date()}`);
-    data = await produtoPrice.findAll({}, { page: page, limit: limit });
-
     try {
-      await repository.insertMany(data.data);
+      data = await produtoPrice.findAll({}, { page: page, limit: limit });
     } catch (error) {
       console.log("A rotina retornou erro " + error);
     }
-    console.log("" + data.data.length + " registros inseridos");
-    await lib.sleep(1000 * 10);
+
+    try {
+      await repository.insertMany(data?.data);
+    } catch (error) {
+      console.log("A rotina retornou erro " + error);
+    }
+    await lib.sleep(1000 * 1);
   }
   await repository.close();
 }
@@ -340,24 +338,29 @@ async function compararPricesByTenant() {
       codfilial: tenant.price_codfilial,
     });
 
+    // Registros novos encontrados apenas na tabela produto_price_new
     try {
-      await updatePriceData(resultado?.changedRecords);
+      await updatePriceData(resultado?.newOnlyRecords);
     } catch (error) {
       console.log("A rotina retornou erro " + error);
     }
 
-    return;
-
+    // Registros alterados encontrados em ambas as tabelas
     try {
-      const repository = new ProductPriceFilaTinyRepository();
-      await repository.config();
-      await repository.insertIntoQueue(resultado?.newOnlyRecords);
+      await updatePriceData(resultado?.changedRecords);
     } catch (error) {
       console.log("A rotina retornou erro " + error);
     }
   }
 }
 
+/**
+ * Obtem os dados de preço de produtos e atualiza o banco de dados mongoDB
+ * @param {Array} dataChanged - Array de objetos contendo os dados a serem atualizados
+ *
+ *
+ *
+ */
 async function updatePriceData(dataChanged) {
   if (!dataChanged || dataChanged.length == 0) {
     console.log("Nenhum registro encontrado para atualizar");
@@ -365,7 +368,7 @@ async function updatePriceData(dataChanged) {
   }
   const repository = new ProductPrecoNewRepository();
   await repository.config();
-  let items = [];
+  const itemsToUpdate = [];
 
   for (let item of dataChanged) {
     let id_tenant = Number(item?.idtenant ? item?.idtenant : 0);
@@ -394,43 +397,34 @@ async function updatePriceData(dataChanged) {
         if (row?.dtultent && typeof row.dtultent === "number") {
           row.dtultent = new Date(row.dtultent);
         }
-
-        row.status = 1;
+        row.status = 0;
         row.updatedat = new Date();
-        items.push(row);
+        itemsToUpdate.push(row);
       }
     } catch (error) {
       console.log("A rotina retornou erro " + error);
     }
-
-    await lib.sleep(1000 * 10);
   }
   await repository.close();
 
-  // Update the records in MongoDB
-  // if (items.length > 0) {
-  //   try {
-  //     const updateRepo = new ProductPrecoNewRepository();
-  //     await updateRepo.config();
+  //salvando os dados no mongoDB
+  const priceRepository = new ProdutoPriceRepository();
+  await priceRepository.config();
 
-  //     console.log(`Atualizando ${items.length} registros no MongoDB`);
-  //     for (const item of items) {
-  //       await updateRepo.update(
-  //         {
-  //           idtenant: item.idtenant,
-  //           codprod: item.codprod,
-  //           codfilial: item.codfilial,
-  //         },
-  //         item
-  //       );
-  //     }
+  try {
+    const result = await priceRepository.updateMany(itemsToUpdate);
+    console.log(result); // Exibe estatísticas da atualização
+  } catch (error) {
+    console.log("A rotina retornou erro " + error);
+  }
 
-  //     await updateRepo.close();
-  //     console.log("Registros atualizados com sucesso");
-  //   } catch (error) {
-  //     console.log("Erro ao atualizar registros no MongoDB: " + error);
-  //   }
-  // }
+  try {
+    const fila = new ProductPriceFilaTinyRepository();
+    await fila.config();
+    await fila.insertIntoQueue(itemsToUpdate);
+  } catch (error) {
+    console.log("A rotina retornou erro " + error);
+  }
 }
 
 export const priceRepository = {
