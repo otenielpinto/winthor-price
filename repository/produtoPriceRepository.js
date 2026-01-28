@@ -21,11 +21,13 @@ class ProdutoPriceRepository {
   }
 
   async create(payload) {
+    await this.config();
     const result = await this.db.collection(collection).insertOne(payload);
     return result.insertedId;
   }
 
   async update(id, payload) {
+    await this.config();
     const result = await this.db
       .collection(collection)
       .updateOne({ id: id }, { $set: payload }, { upsert: true });
@@ -33,11 +35,13 @@ class ProdutoPriceRepository {
   }
 
   async delete(id) {
+    await this.config();
     const result = await this.db.collection(collection).deleteOne({ id: id });
     return result.deletedCount > 0;
   }
 
   async findAll(criterio = {}, options = {}) {
+    await this.config();
     const { page = 1, limit = 5000 } = options;
     const skip = (page - 1) * limit;
 
@@ -64,11 +68,13 @@ class ProdutoPriceRepository {
   }
 
   async findById(id) {
+    await this.config();
     return await this.db.collection(collection).findOne({ id: id });
   }
 
   async insertMany(items) {
     if (!Array.isArray(items)) return null;
+    await this.config();
     try {
       return await this.db.collection(collection).insertMany(items);
     } catch (e) {
@@ -78,18 +84,16 @@ class ProdutoPriceRepository {
 
   async updateMany(items) {
     if (!Array.isArray(items)) return null;
+    await this.config();
     try {
-      const result = {
-        matchedCount: 0,
-        modifiedCount: 0,
-        upsertedCount: 0,
-        errors: [],
-      };
+      const bulkOps = [];
+      const errors = [];
 
+      // Prepara todas as operações em lote
       for (const item of items) {
         const { codprod, idtenant, codfilial } = item;
         if (!codprod || !idtenant || !codfilial) {
-          result.errors.push({
+          errors.push({
             item,
             error:
               "Missing required criteria fields (codprod, idtenant, or codfilial)",
@@ -98,20 +102,36 @@ class ProdutoPriceRepository {
         }
 
         const criteria = { codprod, idtenant, codfilial };
-        try {
-          const updateResult = await this.db
-            .collection(collection)
-            .updateOne(criteria, { $set: item }, { upsert: true });
-
-          result.matchedCount += updateResult.matchedCount;
-          result.modifiedCount += updateResult.modifiedCount;
-          result.upsertedCount += updateResult.upsertedCount || 0;
-        } catch (error) {
-          result.errors.push({ item, error: error.message });
-        }
+        bulkOps.push({
+          updateOne: {
+            filter: criteria,
+            update: { $set: item },
+            upsert: true,
+          },
+        });
       }
 
-      return result;
+      // Se não houver operações válidas, retorna apenas os erros
+      if (bulkOps.length === 0) {
+        return {
+          matchedCount: 0,
+          modifiedCount: 0,
+          upsertedCount: 0,
+          errors,
+        };
+      }
+
+      // Executa todas as operações em uma única chamada - PERFORMANCE MONSTRUOSA!
+      const result = await this.db.collection(collection).bulkWrite(bulkOps, {
+        ordered: false, // Continua mesmo se houver erros em alguns documentos
+      });
+
+      return {
+        matchedCount: result.matchedCount,
+        modifiedCount: result.modifiedCount,
+        upsertedCount: result.upsertedCount,
+        errors,
+      };
     } catch (e) {
       console.log(e);
       return { error: e.message };
@@ -119,6 +139,7 @@ class ProdutoPriceRepository {
   }
 
   async deleteMany(criterio = {}) {
+    await this.config();
     try {
       return await this.db.collection(collection).deleteMany(criterio);
     } catch (e) {

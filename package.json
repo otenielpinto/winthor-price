@@ -1,5 +1,5 @@
 {
-  "name": "API Prices Services",
+  "name": "api-prices-services",
   "version": "1.0.0",
   "description": "API de integracao com software TOTVS WINTHOR . ",
   "main": "app.js",

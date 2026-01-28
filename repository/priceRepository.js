@@ -11,6 +11,16 @@ import { ProdutoPriceRepository } from "./produtoPriceRepository.js";
 var cache = [];
 
 async function init() {
+  /**
+   * Criei uma rotina para atualizar os preços em massa
+   *  com muita performance   28-01-2026 com mongoDB
+   *  Manter o codigo antigo para referencia futura
+   */
+
+  await atualizarPrecosEmMassa();
+
+  return;
+  //nao usar mais essa versao antiga rodando no sql3
   await recebePrecosNew();
   await recebePrecosOld();
   await compararPricesByTenant();
@@ -106,7 +116,7 @@ async function comparePriceChanges(options = {}) {
       // Comparar vlultentmes (valor última entrada mês)
       if (
         Math.abs(
-          Number(newRecord.vlultentmes) - Number(oldRecord.vlultentmes)
+          Number(newRecord.vlultentmes) - Number(oldRecord.vlultentmes),
         ) > 0.001
       ) {
         differences.vlultentmes = {
@@ -144,14 +154,15 @@ async function comparePriceChanges(options = {}) {
   }
 }
 
-async function getPageCount(id_tenant) {
+async function getPageCount(id_tenant, codfilial) {
   for (let c of cache) {
     if (c.idtenant == id_tenant) return c.record_count;
   }
-
   let tenant = await TMongo.getConfigById(id_tenant);
-  let codfilial = tenant.price_codfilial ? tenant.price_codfilial : "1";
   let codregiao = tenant.price_codregiao;
+  if (!codfilial) {
+    codfilial = tenant.price_codfilial ? tenant.price_codfilial : "1";
+  }
 
   if (codregiao == null) {
     console.log("Região de preço não definida");
@@ -213,13 +224,13 @@ async function recebePrecosNew() {
 
     for (let page = 1; page <= page_count; page++) {
       console.log(
-        `TenantId[${id_tenant}] - Buscando dados Server Oracle ${page}/${page_count}  Tamanho da pagina: ${per_page} Total de Registros: ${record_count}  as ${new Date()}`
+        `TenantId[${id_tenant}] - Buscando dados Server Oracle ${page}/${page_count}  Tamanho da pagina: ${per_page} Total de Registros: ${record_count}  as ${new Date()}`,
       );
 
       let response;
       let rows = [];
       try {
-        response = await getPriceByTenantId(id_tenant, page, per_page);
+        response = await getPriceByTenantId({ id_tenant, page, per_page });
         //se tiver uma maneira de fazer isso mais rapido , por favor me avise
         for (let r of response) {
           r.qtest = Number(r.qtest ? r.qtest : 0);
@@ -239,6 +250,81 @@ async function recebePrecosNew() {
     }
 
     await repository.close();
+  }
+  return true;
+}
+
+async function atualizarPrecosEmMassaByTenant(id_tenant) {
+  let filiais = await tenantRepository.getFiliais(id_tenant);
+  let repPrice = new ProdutoPriceRepository();
+
+  for (let filial of filiais) {
+    let codfilial = filial.id;
+    let nameService = "Atualizar Preços em Massa Filial:" + codfilial;
+
+    if (await serviceRepository.wasExecutedToday(id_tenant, nameService)) {
+      console.log("Serviço já executado hoje para o filial: " + codfilial);
+      continue;
+    }
+
+    let record_count = await getPageCount(id_tenant, codfilial);
+    let per_page = parseInt(Math.trunc(record_count * 0.1) + 1);
+    let page_count = parseInt(10 + 1);
+    if (per_page <= 1) per_page = 1000;
+
+    for (let page = 1; page <= page_count; page++) {
+      console.log(
+        `TenantId[${id_tenant}] - Buscando dados Server Oracle ${page}/${page_count}  Tamanho da pagina: ${per_page} Total de Registros: ${record_count}  as ${new Date().toLocaleString()} Filial: ${codfilial}`,
+      );
+
+      let response;
+      let rows = [];
+      try {
+        response = await getPriceByTenantId({
+          id_tenant,
+          page,
+          per_page,
+          codfilial,
+        });
+        //Formar os dados para atualizar
+        for (let r of response) {
+          r.qtest = Number(r.qtest ? r.qtest : 0);
+          r.rnum = Number(r.rnum ? r.rnum : 0);
+          r.pvenda = Number(r.pvenda ? r.pvenda : 0);
+          r.ptabela = Number(r.ptabela ? r.ptabela : 0);
+          r.ultcustotabpreco = Number(
+            r.ultcustotabpreco ? r.ultcustotabpreco : 0,
+          );
+          r.vlultentmes = Number(r.vlultentmes ? r.vlultentmes : 0);
+          r.custocont = Number(r.custocont ? r.custocont : 0);
+          if (r?.rnum) delete r.rnum;
+          let row = { ...r, idtenant: id_tenant, status: 0 };
+          rows.push(row);
+        }
+      } catch (error) {
+        console.log("A rotina retornou erro " + error);
+      }
+
+      try {
+        let response = await repPrice.updateMany(rows);
+        console.log(response); // Exibe estatísticas da atualização
+      } catch (error) {
+        console.log("A rotina retornou erro " + error);
+      }
+    }
+  }
+}
+
+async function atualizarPrecosEmMassa() {
+  let tenants = await tenantRepository.getAllTenantSystem();
+
+  for (let tenant of tenants) {
+    let id_tenant = Number(tenant?.id ? tenant?.id : 0);
+    if (tenant?.price_service_on == 0 || id_tenant == 0) {
+      console.log("Empresa sem permissão para atualizar preço de custo");
+      continue;
+    }
+    await atualizarPrecosEmMassaByTenant(id_tenant);
   }
   return true;
 }
@@ -279,10 +365,14 @@ async function recebePrecosOld() {
 }
 
 //todo : Fazer uma classe para concentrar tudo qe for de DB Oracle
-async function getPriceByTenantId(id_tenant, page, per_page) {
+async function getPriceByTenantId({ id_tenant, page, per_page, codfilial }) {
   let tenant = await TMongo.getConfigById(id_tenant);
-  let codfilial = tenant.price_codfilial ? tenant.price_codfilial : "1";
   let codregiao = tenant.price_codregiao;
+
+  if (!codfilial) {
+    codfilial = tenant.price_codfilial ? tenant.price_codfilial : "1";
+    console.log("Usando codfilial do tenant:", codfilial);
+  }
 
   /*
   SQL

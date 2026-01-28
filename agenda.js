@@ -8,6 +8,7 @@ async function task() {
 }
 
 async function init() {
+  // console.log("iniciando o processamento  " + new Date().toLocaleString());
   // await priceRepository.init();
   // console.log("Fim da leitura as " + new Date().toLocaleString());
   // return;

@@ -55,9 +55,34 @@ async function getTenantById(idTenant) {
   return TMongo.getConfigById(idTenant);
 }
 
+// Retorna as filiais do tenant, incluindo a filial padrão
+async function getFiliais(id_tenant) {
+  const tenant = await getTenantById(id_tenant);
+  if (!tenant) {
+    throw new Error("Tenant não pode ser vazio");
+  }
+
+  // Retorna o array de stock_ids ou um array vazio se não existir
+  const stocks_ids =
+    tenant.stock_ids && Array.isArray(tenant.stock_ids) ? tenant.stock_ids : [];
+
+  if (tenant.stock_branchId == null) {
+    console.log(`TenantId[${tenant.id}] A filial padrão está vazia.`);
+  }
+
+  // Adiciona a filial padrão se não estiver presente
+  stocks_ids.push({
+    id: tenant.stock_branchId || null,
+    nome: "",
+  });
+
+  return stocks_ids;
+}
+
 export const tenantRepository = {
   getAllTenantSystem,
   getTokenByTenantId,
   getTenantById,
   insertTenant,
+  getFiliais,
 };
