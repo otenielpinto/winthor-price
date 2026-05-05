@@ -297,6 +297,8 @@ async function atualizarPrecosEmMassaByTenant(id_tenant) {
           );
           r.vlultentmes = Number(r.vlultentmes ? r.vlultentmes : 0);
           r.custocont = Number(r.custocont ? r.custocont : 0);
+          //este é o custo real (conforme  o estoque winthor)
+          r.custo = Number(r.custo ? r.custo : 0);
           if (r?.rnum) delete r.rnum;
           let row = { ...r, idtenant: id_tenant, status: 0 };
           rows.push(row);
@@ -394,10 +396,18 @@ async function getPriceByTenantId({ id_tenant, page, per_page, codfilial }) {
          from
          (
           select
-            t.codprod,t.numregiao,t.pvenda,t.ptabela,
+            t.codprod,
+            t.numregiao,
+            t.pvenda,
+            t.ptabela,
             t.vlultentmes as ultcustotabpreco, 
             e.valorultent as vlultentmes ,            
-            t.dtultaltpvenda,e.qtest,e.custocont, e.codfilial,e.dtultent 
+            t.dtultaltpvenda,
+            e.qtest,
+            e.custocont,
+            e.codfilial,
+            e.valorultent as custo,
+            e.dtultent 
           from
           pctabpr t 
           left join pcest e  on (e.codprod=t.codprod)
