@@ -59,10 +59,10 @@ async function atualizarPrecosEmMassaByTenant(id_tenant) {
     let codfilial = filial.id;
     let nameService = "Atualizar Preços em Massa Filial:" + codfilial;
 
-    // if (await serviceRepository.wasExecutedToday(id_tenant, nameService)) {
-    //   console.log("Serviço já executado hoje para o filial: " + codfilial);
-    //   continue;
-    // }
+    if (await serviceRepository.wasExecutedToday(id_tenant, nameService)) {
+      console.log("Serviço já executado hoje para o filial: " + codfilial);
+      continue;
+    }
 
     let prods = [];
     try {
