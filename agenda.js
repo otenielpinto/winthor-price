@@ -1,5 +1,4 @@
 import nodeSchedule from "node-schedule";
-import { TMongo } from "./config/db.js";
 import { lib } from "./utils/lib.js";
 import { priceRepository } from "./repository/priceRepository.js";
 
@@ -9,16 +8,14 @@ async function task() {
 
 async function init() {
   // console.log("iniciando o processamento  " + new Date().toLocaleString());
-
-  // await priceRepository.init();
-  // console.log("Fim da leitura as " + new Date().toLocaleString());
-  // return;
+  //await priceRepository.init();
+  //console.log("Fim da leitura as " + new Date().toLocaleString());
+  //return;
 
   try {
-    // Configuração para executar uma vez por dia às 01:00 da manhã
-    const job = nodeSchedule.scheduleJob("0 1 * * *", async () => {
+    // Executa diariamente às 01:00, 12:00, 16:00 e 22:00
+    const job = nodeSchedule.scheduleJob("0 1,12,16,22 * * *", async () => {
       console.log(" Job start as " + new Date().toLocaleString());
-      await TMongo.validateTimeConnection();
       await task();
     });
   } catch (err) {

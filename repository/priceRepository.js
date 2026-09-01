@@ -57,7 +57,12 @@ async function atualizarPrecosEmMassaByTenant(id_tenant) {
 
   for (let filial of filiais) {
     let codfilial = filial.id;
-    let nameService = "Atualizar Preços em Massa Filial:" + codfilial;
+    //a hora faz parte do nome: o job roda 4x/dia (01,12,16,22) e cada janela precisa do seu próprio registro
+    let nameService =
+      "Atualizar Preços em Massa Filial:" +
+      codfilial +
+      " Hora:" +
+      new Date().getHours();
 
     if (await serviceRepository.wasExecutedToday(id_tenant, nameService)) {
       console.log("Serviço já executado hoje para o filial: " + codfilial);
@@ -201,6 +206,7 @@ async function getPriceByTenantId({ id_tenant, page, per_page, codfilial }) {
           `);
     //console.log(res)
     //console.log( lib.objectToLowerCase (res) )
+
     return lib.objectToLowerCase(res);
   } catch (error) {
     console.log("A rotina retornou erro " + error);

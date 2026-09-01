@@ -30,7 +30,15 @@ try {
   process.exit(1);
 }
 
+// 1 knex (e 1 pool de conexões) por tenant, reutilizado entre chamadas;
+// recriar por chamada acumulava pools órfãos com conexões Oracle abertas
+const knexCache = new Map();
+
 async function oracleByTenantId(id_tenant) {
+  if (knexCache.has(id_tenant)) {
+    return knexCache.get(id_tenant);
+  }
+
   let config = await getConfigById(id_tenant);
   if (!config) console.log(`A consulta não retornou dados: ${id_tenant}`);
 
@@ -51,6 +59,7 @@ async function oracleByTenantId(id_tenant) {
       `TenantId[${id_tenant}] A consulta retornou erros ao conectar Server Oracle ${new Date()}`
     );
   }
+  knexCache.set(id_tenant, knex);
   return knex;
 }
 
